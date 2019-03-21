@@ -23,7 +23,7 @@ func main() {
 	admHandler := func(w http.ResponseWriter, req *http.Request) {
 		io.WriteString(w, "admin page\n")
 	}
-	http.HandleFunc("/admin", admHandler)
+	http.HandleFunc("/", admHandler)
 	http.ListenAndServe(":9001", nil)
 }
 
@@ -39,21 +39,26 @@ func tcpProxy(dc defaultconfig) {
 		fmt.Println("error of accept", err)
 	}
 
-	rconn, err := net.Dial("tcp4", "127.0.0.1:9002")
-	if err != nil {
-		fmt.Println("error of dial", err)
-	}
-	defer rconn.Close()
+	for {
 
-	go func() {
-		for {
-			var buf = make([]byte, 10)
-			read, err := conn.Read(buf)
-			if err != nil {
-				fmt.Println("error of read ccon", err)
-			}
-			b := buf[:read]
-			rconn.Write(b)
+		rconn, err := net.Dial("tcp4", "127.0.0.1:9002")
+		if err != nil {
+			fmt.Println("error of dial", err)
 		}
-	}()
+		defer rconn.Close()
+
+		var buf = make([]byte, 10)
+		var buff = make([]byte, 10)
+		read, err := conn.Read(buf)
+		if err != nil {
+			fmt.Println("error of read ccon", err.Error)
+			break
+		}
+		b := buf[:read]
+		rconn.Write(b)
+
+		write, _ := rconn.Read(buff)
+		c := buff[:write]
+		conn.Write(c)
+	}
 }
