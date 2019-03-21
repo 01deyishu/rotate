@@ -5,7 +5,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"time"
 )
 
 type defaultconfig struct {
@@ -20,7 +19,7 @@ var dc = defaultconfig{
 
 func main() {
 	fmt.Println("Start a proxy instance ...")
-	go Listen(dc)
+	go tcpProxy(dc)
 	admHandler := func(w http.ResponseWriter, req *http.Request) {
 		io.WriteString(w, "admin page\n")
 	}
@@ -28,15 +27,33 @@ func main() {
 	http.ListenAndServe(":9001", nil)
 }
 
-func Listen(dc defaultconfig) {
-	lis, err := net.Listen("tcp", dc.address+":"+dc.port)
-	if err != nil {
-		fmt.Println("listener error ", err)
+func tcpProxy(dc defaultconfig) {
+	lis, derr := net.Listen("tcp", dc.address+":"+dc.port)
+	if derr != nil {
+		fmt.Println("listener error ", derr)
 	}
-	go handleconn(lis)
-	time.Sleep(time.Second * 20)
-}
+	defer lis.Close()
 
-func handleconn(l net.Listener) {
-	fmt.Println(l.Addr().Network())
+	conn, err := lis.Accept()
+	if err != nil {
+		fmt.Println("error of accept", err)
+	}
+
+	rconn, err := net.Dial("tcp4", "127.0.0.1:9002")
+	if err != nil {
+		fmt.Println("error of dial", err)
+	}
+	defer rconn.Close()
+
+	go func() {
+		for {
+			var buf = make([]byte, 10)
+			read, err := conn.Read(buf)
+			if err != nil {
+				fmt.Println("error of read ccon", err)
+			}
+			b := buf[:read]
+			rconn.Write(b)
+		}
+	}()
 }
